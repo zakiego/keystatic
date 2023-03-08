@@ -53,6 +53,17 @@ function cloneDescendant(node: Descendant): Descendant {
   };
 }
 
+function calculateRowSize(row: Element): number {
+  return row.children.reduce(
+    (acc, cell) =>
+      acc +
+      (cell.type === 'table-cell' && typeof cell.colSpan === 'number'
+        ? cell.colSpan
+        : 1),
+    0
+  );
+}
+
 export function withTable(editor: Editor): Editor {
   const { deleteFragment, normalizeNode, getFragment, insertFragment } = editor;
   editor.insertFragment = fragment => {
@@ -269,29 +280,38 @@ export function withTable(editor: Editor): Editor {
   };
   editor.normalizeNode = entry => {
     const [node, path] = entry;
+    if (
+      node.type === 'table-cell' &&
+      node.colSpan !== undefined &&
+      node.colSpan <= 1
+    ) {
+      Transforms.unsetNodes(editor, 'colSpan', { at: path });
+      return;
+    }
     if (node.type === 'table') {
       for (const [idx, child] of node.children.entries()) {
         if (child.type === 'table-body') {
           const maxRowCount = child.children.reduce(
             (max, node) =>
               node.type === 'table-row'
-                ? Math.max(max, node.children.length)
+                ? Math.max(max, calculateRowSize(node))
                 : max,
             0
           );
+          let didInsert = false;
           for (const [rowIdx, row] of child.children.entries()) {
-            if (
-              row.type === 'table-row' &&
-              row.children.length !== maxRowCount
-            ) {
-              Transforms.insertNodes(
-                editor,
-                Array.from({ length: maxRowCount - row.children.length }).map(
-                  cell
-                ),
-                { at: [...path, idx, rowIdx, row.children.length] }
-              );
-            }
+            if (row.type !== 'table-row') continue;
+            const rowSize = calculateRowSize(row);
+            if (rowSize === maxRowCount) continue;
+            Transforms.insertNodes(
+              editor,
+              Array.from({ length: maxRowCount - rowSize }).map(cell),
+              { at: [...path, idx, rowIdx, row.children.length] }
+            );
+            didInsert = true;
+          }
+          if (didInsert) {
+            return;
           }
         }
       }
@@ -494,7 +514,7 @@ export function TableCellElement({
   attributes,
   children,
   element,
-}: RenderElementProps) {
+}: RenderElementProps & { element: { type: 'table-cell' } }) {
   const editor = useStaticEditor();
   const selectedCellsContext = useContext(SelectedCellsContext);
   const startElements = useContext(StartElementsContext);
@@ -502,6 +522,7 @@ export function TableCellElement({
   const size = `calc(100% + 2px)`;
   return (
     <td
+      colSpan={element.colSpan}
       className={css({
         border: `1px solid ${tokenSchema.color.alias.borderIdle}`,
         backgroundColor: selectedCellsContext?.cells.has(element)
@@ -776,6 +797,66 @@ export const cellActions = {
           path[path.length - 2],
           newCellIndex,
         ]);
+      });
+    },
+  },
+  mergeCells: {
+    label: 'Merge cells',
+    action: editor => {
+      const selected = getSelectedTableArea(editor);
+      if (!selected) return;
+      const { row, column, tablePath } = selected;
+      const rowPath = [...tablePath, 0, row.start];
+      const cellPath = [...rowPath, column.start];
+      const cellToMerge = Node.get(editor, cellPath);
+      if (cellToMerge.type !== 'table-cell') return;
+      Editor.withoutNormalizing(editor, () => {
+        Transforms.setNodes(
+          editor,
+          { colSpan: column.end - column.start + 1 },
+          { at: cellPath }
+        );
+        let lengthOfCell = cellToMerge.children.length;
+        for (
+          let cellIndex = column.end;
+          cellIndex > column.start;
+          cellIndex--
+        ) {
+          if (cellIndex === column.start) continue;
+          const node = Node.get(editor, [...rowPath, cellIndex]);
+          if (node.type !== 'table-cell') continue;
+
+          const to = [...cellPath, lengthOfCell];
+          if (
+            node.children.length === 1 &&
+            node.children[0].type === 'paragraph' &&
+            node.children[0].children.length === 1 &&
+            node.children[0].children[0].type === undefined &&
+            node.children[0].children[0].text === ''
+          ) {
+            Transforms.removeNodes(editor, { at: [...rowPath, cellIndex] });
+          } else {
+            Transforms.moveNodes(editor, { at: [...rowPath, cellIndex], to });
+            Transforms.unwrapNodes(editor, { at: to });
+            lengthOfCell += node.children.length;
+          }
+        }
+        Transforms.select(editor, cellPath);
+      });
+    },
+  },
+  splitCells: {
+    label: 'Split cell',
+    action: (editor, path) => {
+      Editor.withoutNormalizing(editor, () => {
+        const node = Node.get(editor, path);
+        if (node.type !== 'table-cell' || node.colSpan === undefined) return;
+        Transforms.unsetNodes(editor, 'colSpan', { at: path });
+        Transforms.insertNodes(
+          editor,
+          Array.from({ length: node.colSpan - 1 }, cell),
+          { at: Path.next(path) }
+        );
       });
     },
   },
