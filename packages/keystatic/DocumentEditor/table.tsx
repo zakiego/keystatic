@@ -23,6 +23,7 @@ import { css, tokenSchema } from '@voussoir/style';
 import { nodeTypeMatcher, useStaticEditor } from './utils';
 import { chevronDownIcon } from '@voussoir/icon/icons/chevronDownIcon';
 import { Item, Menu, MenuTrigger } from '@voussoir/menu';
+import weakMemoize from '@emotion/weak-memoize';
 
 const cell = () => ({
   type: 'table-cell' as const,
@@ -334,17 +335,73 @@ function order(a: number, b: number) {
   return { start: Math.min(a, b), end: Math.max(a, b) };
 }
 
+const getCellPointsToRelativePath = weakMemoize(
+  function getCellPointsToRelativePath(
+    table: Element & { type: 'table' }
+  ): [number, number, number][][] {
+    const tableBody = table.children[0];
+    if (!Element.isElement(tableBody)) return [];
+    const rows: [number, number, number][][] = [];
+    for (const [rowIdx, row] of tableBody.children.entries()) {
+      if (row.type !== 'table-row') return [];
+      const cells: (typeof rows)[number] = [];
+      for (const [cellIdx, cell] of row.children.entries()) {
+        if (cell.type !== 'table-cell') return [];
+        const colSpan = cell.colSpan ?? 1;
+        for (let i = 0; i < colSpan; i++) {
+          cells.push([0, rowIdx, cellIdx]);
+        }
+      }
+      rows.push(cells);
+    }
+    return rows;
+  }
+);
+
+type CellPoints = {
+  row: { start: number; end: number };
+  column: { start: number; end: number };
+};
+
+const getRelativePathToCellPoints = weakMemoize(
+  function getRelativePathToCellPoints(
+    table: Element & { type: 'table' }
+  ): CellPoints[][][] {
+    const tableBody = table.children[0];
+    if (!Element.isElement(tableBody)) return [];
+    const rows: CellPoints[][] = [];
+    for (const [rowIdx, row] of tableBody.children.entries()) {
+      if (row.type !== 'table-row') return [];
+      const cells: (typeof rows)[number] = [];
+      let prev = 0;
+      for (const cell of row.children.values()) {
+        if (cell.type !== 'table-cell') return [];
+        cells.push({
+          row: { start: rowIdx, end: rowIdx },
+          column: { start: prev + 1, end: prev + (cell.colSpan ?? 1) },
+        });
+        prev += cell.colSpan ?? 1;
+      }
+      rows.push(cells);
+    }
+    return [rows];
+  }
+);
+
 function getSelectedCells(
-  tableBody: Element,
+  table: Element & { type: 'table' },
   row: { start: number; end: number },
   column: { start: number; end: number }
 ) {
+  const cellPointsToRelativePath = getCellPointsToRelativePath(table);
   const selectedCells = new Set<Descendant>();
   for (let rowIndex = row.start; rowIndex <= row.end; rowIndex++) {
-    const row = tableBody.children[rowIndex];
-    if (!Element.isElement(row)) continue;
+    const row = cellPointsToRelativePath[rowIndex];
     for (let cellIndex = column.start; cellIndex <= column.end; cellIndex++) {
-      selectedCells.add(row.children[cellIndex]);
+      const cellRelativePath = row[cellIndex];
+      const cell = Node.get(table, cellRelativePath);
+      if (!Element.isElement(cell)) continue;
+      selectedCells.add(cell);
     }
   }
   return selectedCells;
@@ -371,18 +428,20 @@ function getSelectedTableArea(editor: Editor) {
     Path.equals(anchor.slice(0, -3), focus.slice(0, -3))
   ) {
     const [start, end] = Editor.edges(editor, editor.selection);
+    const row = order(anchor[anchor.length - 2], focus[focus.length - 2]);
+    const column = order(anchor[anchor.length - 1], focus[focus.length - 1]);
     return {
       tablePath: table[1],
       table: table[0],
       singleCell: Path.equals(anchor, focus)
         ? Point.equals(Editor.start(editor, anchor), start) &&
           Point.equals(Editor.end(editor, anchor), end) &&
-          !Point.equals(start, end)
+          !Range.isCollapsed(editor.selection)
           ? ('selected' as const)
           : ('not-selected' as const)
         : ('many' as const),
-      row: order(anchor[anchor.length - 2], focus[focus.length - 2]),
-      column: order(anchor[anchor.length - 1], focus[focus.length - 1]),
+      row,
+      column,
     };
   }
 }
@@ -401,7 +460,7 @@ export function TableSelectionProvider(props: { children: React.ReactNode }) {
             selectedTableArea.singleCell === 'not-selected'
               ? new Set()
               : getSelectedCells(
-                  selectedTableArea.table.children[0],
+                  selectedTableArea.table,
                   selectedTableArea.row,
                   selectedTableArea.column
                 ),
@@ -805,9 +864,13 @@ export const cellActions = {
     action: editor => {
       const selected = getSelectedTableArea(editor);
       if (!selected) return;
-      const { row, column, tablePath } = selected;
-      const rowPath = [...tablePath, 0, row.start];
-      const cellPath = [...rowPath, column.start];
+      const { row, column, tablePath, table } = selected;
+      const cellPointsToRelativePath = getCellPointsToRelativePath(table);
+      const cellPath = [
+        ...tablePath,
+        ...cellPointsToRelativePath[row.start][column.start],
+      ];
+      const rowPath = Path.parent(cellPath);
       const cellToMerge = Node.get(editor, cellPath);
       if (cellToMerge.type !== 'table-cell') return;
       Editor.withoutNormalizing(editor, () => {
@@ -817,14 +880,16 @@ export const cellActions = {
           { at: cellPath }
         );
         let lengthOfCell = cellToMerge.children.length;
+        const seenNodes = new Set();
         for (
           let cellIndex = column.end;
           cellIndex > column.start;
           cellIndex--
         ) {
-          if (cellIndex === column.start) continue;
-          const node = Node.get(editor, [...rowPath, cellIndex]);
-          if (node.type !== 'table-cell') continue;
+          const relativePath = cellPointsToRelativePath[row.start][cellIndex];
+          const node = Node.get(editor, [...tablePath, ...relativePath]);
+          if (node.type !== 'table-cell' || seenNodes.has(node)) continue;
+          seenNodes.add(node);
 
           const to = [...cellPath, lengthOfCell];
           if (
