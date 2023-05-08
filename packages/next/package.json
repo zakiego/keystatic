@@ -20,6 +20,10 @@
       "module": "./ui/pages/dist/keystatic-next-ui-pages.esm.js",
       "default": "./ui/pages/dist/keystatic-next-ui-pages.cjs.js"
     },
+    "./route-handler": {
+      "module": "./route-handler/dist/keystatic-next-route-handler.esm.js",
+      "default": "./route-handler/dist/keystatic-next-route-handler.cjs.js"
+    },
     "./reader-refresh": {
       "module": "./reader-refresh/dist/keystatic-next-reader-refresh.esm.js",
       "default": "./reader-refresh/dist/keystatic-next-reader-refresh.cjs.js"
@@ -32,7 +36,8 @@
     "dist",
     "api",
     "ui",
-    "reader-refresh"
+    "reader-refresh",
+    "route-handler"
   ],
   "dependencies": {
     "@babel/runtime": "^7.18.3",
@@ -57,6 +62,7 @@
       "ui/pages.tsx",
       "ui/app.tsx",
       "api.tsx",
+      "route-handler.tsx",
       "reader-refresh.tsx"
     ]
   }
