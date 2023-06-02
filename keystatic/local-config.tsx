@@ -1,4 +1,4 @@
-import { config, singleton } from '@keystatic/core';
+import { config, fields, singleton } from '@keystatic/core';
 
 export default config({
   storage: {
@@ -6,8 +6,15 @@ export default config({
   },
   singletons: {
     test: singleton({
-      label: 'Text',
-      fields: {},
+      label: 'Test',
+      schema: {
+        document: fields.newDocument({
+          label: 'Document',
+          formatting: true,
+          dividers: true,
+          links: true,
+        }),
+      },
     }),
   },
 });
