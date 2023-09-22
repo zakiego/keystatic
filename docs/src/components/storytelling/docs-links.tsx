@@ -842,7 +842,7 @@ export default function DocsLinks() {
                 </div>
                 <div className="relative h-44 w-full overflow-hidden bg-sand-2">
                   {doc.bgSVG}
-                  <div className="absolute left-0 top-0 h-full w-full bg-pattern-texture opacity-80 mix-blend-soft-light transition-all duration-500 ease-out group-hover:scale-125" />
+                  <div className="absolute left-0 top-0 h-full w-full bg-pattern-texture opacity-80 mix-blend-soft-light" />
                   {doc.content}
                 </div>
               </div>
