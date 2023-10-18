@@ -191,31 +191,27 @@ type SingletonReader<Schema extends Record<string, ComponentSchema>> = {
   >;
 };
 
+type DirEntry = { name: string; kind: 'file' | 'directory' };
+
+export type MinimalFs = {
+  readFile(path: string): Promise<Uint8Array | null>;
+  readdir(path: string): Promise<DirEntry[]>;
+  fileExists(path: string): Promise<boolean>;
+};
+
 async function getAllEntries(
-  root: string,
-  prefix: string
-): Promise<{ entry: Dirent; name: string }[]> {
+  parent: string,
+  fsReader: MinimalFs
+): Promise<{ entry: DirEntry; name: string }[]> {
   return (
     await Promise.all(
-      (
-        await fs
-          .readdir(nodePath.join(root, prefix), { withFileTypes: true })
-          .catch(err => {
-            if ((err as any).code === 'ENOENT') {
-              return [];
-            }
-            throw err;
-          })
-      ).map(async dirent => {
-        const name = `${prefix}${dirent.name}`;
+      (await fsReader.readdir(parent)).map(async dirent => {
+        const name = `${parent}${dirent.name}`;
         const entry = { entry: dirent, name };
-        if (dirent.isDirectory()) {
-          return [entry, ...(await getAllEntries(root, `${name}/`))];
+        if (dirent.kind === 'directory') {
+          return [entry, ...(await getAllEntries(`${name}/`, fsReader))];
         }
-        if (dirent.isFile()) {
-          return entry;
-        }
-        return [];
+        return entry;
       })
     )
   ).flat();
@@ -336,6 +332,7 @@ const readItem = cache(async function readItem(
   repoPath: string,
   resolveLinkedFiles: boolean | undefined,
   debugReference: string,
+  fsReader: MinimalFs,
   ...slugInfo: [slug: undefined] | [slug: string, field: string, glob: Glob]
 ) {
   let dataFile: Uint8Array;
