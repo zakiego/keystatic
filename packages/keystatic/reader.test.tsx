@@ -1,7 +1,8 @@
 /** @jest-environment node */
 import path from 'path';
 import { component, fields, collection, config } from './src';
-import { EntryWithResolvedLinkedFiles, createReader } from './src/reader';
+import { EntryWithResolvedLinkedFiles } from './src/reader';
+import { createReader } from './src/reader/createReader';
 
 const localConfig = config({
   storage: {
