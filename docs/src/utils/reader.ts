@@ -1,12 +1,20 @@
 import { createReader } from '@keystatic/core/reader';
+import { createGitHubReader } from '@keystatic/core/reader/github';
 import keystaticConfig from '../../keystatic.config';
+import { cache } from 'react';
 
-export const reader = createReader(process.cwd(), keystaticConfig);
+export const reader = cache(() => {
+  return createGitHubReader(keystaticConfig, {
+    repo: 'Thinkmill/keystatic',
+    ref: 'main',
+    pathPrefix: 'docs',
+  });
+  return createReader(process.cwd(), keystaticConfig);
+});
 
 export async function getNavigationMap() {
-  const navigation = await reader.singletons.navigation.read();
-  const pages = await reader.collections.pages.all();
-
+  const navigation = await reader().singletons.navigation.read();
+  const pages = await reader().collections.pages.all();
   const pagesBySlug = Object.fromEntries(pages.map(page => [page.slug, page]));
 
   const navigationMap = navigation?.navGroups.map(({ groupName, items }) => ({
