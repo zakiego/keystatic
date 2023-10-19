@@ -2,13 +2,17 @@ import { createReader } from '@keystatic/core/reader';
 import { createGitHubReader } from '@keystatic/core/reader/github';
 import keystaticConfig from '../../keystatic.config';
 import { cache } from 'react';
+import { draftMode } from 'next/headers';
 
 export const reader = cache(() => {
-  return createGitHubReader(keystaticConfig, {
-    repo: 'Thinkmill/keystatic',
-    ref: 'main',
-    pathPrefix: 'docs',
-  });
+  const { isEnabled } = draftMode();
+  if (isEnabled) {
+    return createGitHubReader(keystaticConfig, {
+      repo: 'Thinkmill/keystatic',
+      ref: 'preview-testing',
+      pathPrefix: 'docs',
+    });
+  }
   return createReader(process.cwd(), keystaticConfig);
 });
 
