@@ -5,7 +5,12 @@ import { cache } from 'react';
 import { draftMode } from 'next/headers';
 
 export const reader = cache(() => {
-  const { isEnabled } = draftMode();
+  let isEnabled;
+  try {
+    ({ isEnabled } = draftMode());
+  } catch {
+    isEnabled = false;
+  }
   if (isEnabled) {
     return createGitHubReader(keystaticConfig, {
       repo: 'Thinkmill/keystatic',
