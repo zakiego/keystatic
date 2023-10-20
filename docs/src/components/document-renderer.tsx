@@ -39,7 +39,7 @@ export default async function DocumentRenderer({
   );
 }
 
-const getRenderers = (slug: string): DocumentRendererProps['renderers'] => ({
+const getRenderers = (): DocumentRendererProps['renderers'] => ({
   inline: {
     bold: ({ children }) => <strong>{children}</strong>,
     code: ({ children }) => (
@@ -69,7 +69,7 @@ const getRenderers = (slug: string): DocumentRendererProps['renderers'] => ({
         {children}
       </p>
     ),
-    code: ({ children, language }) => {
+    code: ({ children }) => {
       return (
         <div className="my-2 text-sm [&>pre]:whitespace-break-spaces [&>pre]:break-all [&>pre]:rounded-lg [&>pre]:border [&>pre]:border-slate-5 [&>pre]:bg-white [&>pre]:px-6 [&>pre]:py-4">
           <pre>{children}</pre>
