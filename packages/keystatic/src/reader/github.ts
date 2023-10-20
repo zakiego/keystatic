@@ -55,17 +55,17 @@ export function createGitHubReader<
         `Failed to fetch tree: ${res.status} ${await res.text()}`
       );
     }
-    const { tree }: { tree: TreeEntry[] } = await res.json();
-    return treeEntriesToTreeNodes(tree);
+    const { tree, sha }: { tree: TreeEntry[]; sha: string } = await res.json();
+    return { tree: treeEntriesToTreeNodes(tree), sha };
   });
   const fs: MinimalFs = {
     async fileExists(path) {
-      const tree = await getTree();
+      const { tree } = await getTree();
       const node = getTreeNodeAtPath(tree, fixPath(`${pathPrefix}${path}`));
       return node?.entry.type === 'blob';
     },
     async readdir(path) {
-      const tree = await getTree();
+      const { tree } = await getTree();
       const node = getTreeNodeAtPath(tree, fixPath(`${pathPrefix}${path}`));
       if (!node?.children) return [];
       const filtered: { name: string; kind: 'file' | 'directory' }[] = [];
@@ -80,12 +80,10 @@ export function createGitHubReader<
       return filtered;
     },
     async readFile(path) {
+      const { sha } = await getTree();
       const res = await fetch(
-        `https://raw.githubusercontent.com/${opts.repo}/${ref}/${pathPrefix}${path}`,
-        {
-          headers: opts.token ? { Authorization: `Bearer ${opts.token}` } : {},
-          cache: 'no-store',
-        }
+        `https://raw.githubusercontent.com/${opts.repo}/${sha}/${pathPrefix}${path}`,
+        { headers: opts.token ? { Authorization: `Bearer ${opts.token}` } : {} }
       );
       if (res.status === 404) return null;
       if (!res.ok) {
