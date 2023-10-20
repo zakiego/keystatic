@@ -2,7 +2,7 @@ import {
   DocumentRenderer as KeystaticRenderer,
   DocumentRendererProps,
 } from '@keystatic/core/renderer';
-import shiki from 'shiki';
+// import shiki from 'shiki';
 import Heading from './heading';
 import { InferRenderersForComponentBlocks } from '@keystatic/core';
 import { componentBlocks } from '../../keystatic.config';
@@ -20,29 +20,26 @@ import { FileFieldDemo } from './fields/file';
 import { Embed, EmbedProps } from './embed';
 import Link from 'next/link';
 import { DatetimeFieldDemo } from './fields/datetime';
-import keystaticCodeTheme from '../styles/keystatic-theme.json';
+// import keystaticCodeTheme from '../styles/keystatic-theme.json';
 
 export default async function DocumentRenderer({
   slug,
   document,
 }: DocumentRendererProps & { slug: string }) {
-  const highlighter = await shiki.getHighlighter({
-    theme: keystaticCodeTheme as any,
-  });
+  // const highlighter = await shiki.getHighlighter({
+  //   theme: keystaticCodeTheme as any,
+  // });
 
   return (
     <KeystaticRenderer
       document={document}
-      renderers={getRenderers(slug, highlighter)}
+      renderers={getRenderers(slug)}
       componentBlocks={componentBlockRenderers}
     />
   );
 }
 
-const getRenderers = (
-  slug: string,
-  highlighter: shiki.Highlighter
-): DocumentRendererProps['renderers'] => ({
+const getRenderers = (slug: string): DocumentRendererProps['renderers'] => ({
   inline: {
     bold: ({ children }) => <strong>{children}</strong>,
     code: ({ children }) => (
@@ -73,27 +70,10 @@ const getRenderers = (
       </p>
     ),
     code: ({ children, language }) => {
-      let codeBlock = children;
-
-      try {
-        const tokens = highlighter.codeToThemedTokens(children, language);
-        codeBlock = shiki.renderToHtml(tokens, {
-          elements: {
-            // Override shiki's <pre> so its default background color doesn't get applied
-            pre({ children }) {
-              return `<pre tabIndex="0">${children}</pre>`;
-            },
-          },
-        });
-      } catch (error) {
-        console.error('Error highlighting codeblock', error);
-      }
-
       return (
-        <div
-          className="my-2 text-sm [&>pre]:whitespace-break-spaces [&>pre]:break-all [&>pre]:rounded-lg [&>pre]:border [&>pre]:border-slate-5 [&>pre]:bg-white [&>pre]:px-6 [&>pre]:py-4"
-          dangerouslySetInnerHTML={{ __html: codeBlock }}
-        />
+        <div className="my-2 text-sm [&>pre]:whitespace-break-spaces [&>pre]:break-all [&>pre]:rounded-lg [&>pre]:border [&>pre]:border-slate-5 [&>pre]:bg-white [&>pre]:px-6 [&>pre]:py-4">
+          <pre>{children}</pre>
+        </div>
       );
     },
     list: ({ type, children }) => {
