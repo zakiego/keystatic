@@ -84,6 +84,7 @@ export function createGitHubReader<
         `https://raw.githubusercontent.com/${opts.repo}/${ref}/${pathPrefix}${path}`,
         {
           headers: opts.token ? { Authorization: `Bearer ${opts.token}` } : {},
+          cache: 'no-store',
         }
       );
       if (res.status === 404) return null;
