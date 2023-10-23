@@ -87,7 +87,7 @@ export function createGitHubReader<
       );
       if (res.status === 404) return null;
       if (!res.ok) {
-        throw new Error(`Failed to fetch ${path}: ${res.statusText}`);
+        throw new Error(`Failed to fetch ${path}: ${await res.text()}`);
       }
       return new Uint8Array(await res.arrayBuffer());
     },
