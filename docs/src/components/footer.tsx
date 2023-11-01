@@ -1,3 +1,4 @@
+'use client';
 import Link from 'next/link';
 import { KeystaticLogoLink } from './navigation/keystatic-logo-link';
 import { SocialLinks } from './navigation/social-links';
