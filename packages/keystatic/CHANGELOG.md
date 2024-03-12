@@ -1,5 +1,11 @@
 # @keystatic/core
 
+## 0.5.3
+
+### Patch Changes
+
+- 68680678: Allow uploading images to Keystatic Cloud from within Keystatic's UI
+
 ## 0.5.2
 
 ### Patch Changes
